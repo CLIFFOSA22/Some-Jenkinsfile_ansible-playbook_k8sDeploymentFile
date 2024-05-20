@@ -1,0 +1,310 @@
+using ansible to install packages
+
+- hosts: web
+  become: troe
+  tasks:
+  - name: install apache
+    ignore_error: true
+    package: name=httpd state=latest
+  - name: start apache
+    ignore_error: true
+    service: name-httpd state=started
+  - name: copy index.html to web
+    ignore_error: true
+    copy: 
+     src: index.html
+      dest: /var/www/html
+
+- hosts: all
+  become: truw
+  tasks:
+  - name: install vim
+    package: name=vim state=latest
+
+- hosts: localhost
+  become: true
+  tasks:
+  - name: check local system resources usage
+    shell: df -h
+
+
+Declarative playbook
+
+- hosts: docker
+  become: true
+  tasks:
+  - name: build docker image
+    ignore_error: true
+    shell: 
+     docker build -t imageName -f app/Dockerfile
+     #docker build -t imageName .
+  - name: login into image registry
+     ignore_error: true
+     shell: 
+      docker login -u iamgeRegistryUserName -p registryPassword' 
+     # you must be authenticated to be able to push dockerImage
+  - name: push image to image registery
+    ignore_error: true
+    shell:
+     docker push -t imageName imageRegistryRepo
+  - name: delete docker image
+    ignore_error: true
+    shell:
+     docker rmi imageName # or imageID
+
+- hosts: k89
+  become: true
+  tasks:
+  - name: deploy k8s to uat environment for further testing and manual approval
+    ignore_error: true
+    shell: 
+     kubectl apply -f uat-manifestFileName  -n uat
+
+# after the  testing is completed you can now deployed to production
+
+  - name: deploy k8s
+     ignore_error: true
+     shell: 
+      kubectl apply -f prod-manifestFileName  -n prod
+
+ansible-playbook playbookName  -----> for default hostFile.
+ansible playbook playbookName -i customHostFileName  ---> for custom hostFile
+
+Imperative playbook
+
+ansible hostName -m package a"name=git state=latest" -b    --> to install git
+ansible hostName -m package a"name=httpd state=latest" -b    --> to install apache
+
+
+Manifest file for Deployment  using RollingUpdate Deployment strategy
+
+apiVersion: apps/vi   # kubectl api-resources | grep Deployment
+kind: Deployment
+metadata:
+ name: app-dep
+ namespace: uat
+spec: 
+ replicas: 10
+ strategy:
+  type:
+   RollingtUpdate:
+    RollingUodates:
+     maxUnvailable: 1
+     maxSurge: 1
+     miniReadySeconds: 60    
+ selector:
+  matchlabels:
+    app: app-dep
+ templates: 
+  metadata: 
+   name: app-dep
+   labels:
+    app: app-dep
+  spec:
+     containers:
+     - name: app-dep
+       image: dominionsystems:12
+       ports:
+       - containerPort: 8080
+
+
+service for the Deployment
+
+apiVersion: vi
+kind: service
+metadata:
+ name: dep-svc
+ namespace: uat
+spec:
+ selectors:
+  app: app-dep
+ type: NodePort
+ Ports:
+  -targetPort: 8080
+   port: 80
+   nodeport: 32000
+
+Manifest file for Recreate using Recreate Deployment strategy
+
+kind: Deployment
+metadata:
+ name: app-dep
+ namespace: uat
+spec: 
+ replicas: 10
+ strategy:
+  type:
+   Recreate   
+ selector:
+  matchlabels:
+    app: app-dep
+ templates: 
+  metadata: 
+   name: app-dep
+   labels:
+    app: app-dep
+  spec:
+     containers:
+     - name: app-dep
+       image: dominionsystems:12
+       ports:
+
+service for the Recreate
+
+apiVersion: vi
+kind: service
+metadata:
+ name: dep-svc
+ namespace: uat
+spec:
+ selectors:
+  app: app-dep
+ type: NodePort
+ Ports:
+  -targetPort: 8080
+   port: 80
+   nodeport: 32000
+
+NOTE
+
+1. How to write a dockerFile
+
+FROM  tomcat 2.00
+ADD   nexusRepoURL
+RUN   yum install httpd
+CMD   [httpd' start]
+
+JENKINS TERRAFORM $ ANSIBLE INTEGRATION TO PROVISION INFRASTRUCTURE $ INSTAKLL SOFTWARE INSIDE THE SERVERS
+
+pipeline{
+ parameters{
+  choice(name= 'deploy_terraform_ansible', choices: ['apply, approve'])
+  environemnt {
+    EMAIL_TO = 'cliffeg1@gmail.com'
+}
+
+}
+ agent 'terraform-node'
+ stages[
+   stage(1. 'gitClone'){
+     steps{
+       sh 'echo clone github'
+       git 'ProjectRepoURL'
+}
+}
+ agent 'terraformNode'
+ stages[
+   stage(2. 'infrastructureProvisioning'){
+     steps{
+       sh 'terraform init'
+       sh 'echo initialization is completed'
+
+   stage(3. 'terraformPlan'){
+     steps{
+       sh 'terraform plan'
+       sh 'echo EKS cluser, sonarqube server, nexus server, maven server, tomcat server are created'    
+
+   stage('4.manualApproval') {
+            input {
+                message "Should we proceed?"
+                ok "Yes, we should."
+                parameters{
+                choice ( name: 'Manual_Approval', choices: ['Approve, Reject'])
+
+}
+
+             steps {
+                sh 'echo deployment for manual approval" '
+            }          
+        }
+
+    stage(2. 'infrastructureProvisioning'){
+     steps{
+       sh 'echo create EKS cluser, sonarqube server, nexus server, maven server, tomcat server'
+       sh 'terraform init'
+
+}
+}
+   agent 'ansibleNode'     #  TO INSTALL SOFTWARE INSIDE THE SERVERS USING
+   stage(2.'serverConfiguration'){
+     steps{
+       sh 'echo install software in the servers above using ansible roles and ansible playbook'
+       sh 'ansible-playbook playbookName'
+]
+}
+]
+}
+
+Jenkins CI jobs
+
+pipeline{
+  agent any
+  tools{}
+  stages{
+    stage(1. 'codeClone'){
+      steps{
+        sh 'echo cloneApplicationCode'
+        git 'projectRepoUrl'
+}
+}
+    stage(2. 'build$test'){
+      steps{
+        sh 'echo build artifacts'
+        sh 'mvn clean package'
+}
+}
+    stage(3. 'codeQualityAnalysis'){
+      steps{
+        sh 'echo use sonarqube to set benchmark for code quality analysis'
+        sh 'mvn sonar:sonar'
+}
+}
+    stage(4. 'uploadArtifacts'){
+      steps{
+        sh 'echo upload artifacts into nexus'
+        sh 'mvn deploy'
+        sh 'echo CI jobs completed'
+}
+}
+   agent 'ansibleNode'
+    stage(5. 'build&pushImage'){
+      steps{
+        sh 'echo build docker image and push image to registry'
+        sh 'ansible-playbook playbookDockerName'
+
+}
+}
+}
+}
+
+CD jobs 
+
+pipeline{
+  agent 'ansibleNode'
+  tools{}
+  stages{
+    stage(6. 'deploy2UAT'){
+      steps{
+        sh 'echo create, startup containers and deploy to UAT namespace '
+        sh 'ansible-playbook playbookDockerName'
+
+}
+}
+
+    stage(6. 'deploy2Prod'){
+      steps{
+        sh 'echo create, startup containers and deploy to UAT namespace'
+        sh 'ansible-playbook playbookk8sName'
+
+}
+}
+}
+}
+
+  post{
+    always{}
+    success{}
+    failure{}
+  }
+  }
+
